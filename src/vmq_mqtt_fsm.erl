@@ -372,7 +372,8 @@ connected(#mqtt_pingreq{}, State) ->
     {NewState, Out} = send_frame(#mqtt_pingresp{}, State),
     {incr_msg_recv_cnt(NewState), Out};
 connected(#mqtt_disconnect{}, State) ->
-    terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
+    terminate(normal, incr_msg_recv_cnt(State));
+    %%terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
 connected(retry,
     #state{waiting_acks=WAcks, retry_interval=RetryInterval,
            retry_queue=RetryQueue, send_cnt=SendCnt} = State) ->
@@ -663,6 +664,7 @@ dispatch_publish_qos0(_MessageId, Msg, State) ->
         {ok, _} ->
             {State, []};
         {error, _Reason} ->
+          lager:debug("can't  publish Msg ~p drop due to ~p", [Msg, _Reason]),
             {drop(State), []}
     end.
 
@@ -673,6 +675,7 @@ dispatch_publish_qos1(MessageId, Msg, State) ->
         {ok, _} ->
             send_frame(#mqtt_puback{message_id=MessageId}, State);
         {error, _Reason} ->
+            lager:debug("can't  publish Msg ~p drop due to ~p", [Msg, _Reason]),
             %% can't publish due to overload or netsplit
             {drop(State), []}
     end.
