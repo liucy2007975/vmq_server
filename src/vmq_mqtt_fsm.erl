@@ -372,7 +372,7 @@ connected(#mqtt_pingreq{}, State) ->
     {NewState, Out} = send_frame(#mqtt_pingresp{}, State),
     {incr_msg_recv_cnt(NewState), Out};
 connected(#mqtt_disconnect{}, State) ->
-    terminate(normal, incr_msg_recv_cnt(State));
+    terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
 connected(retry,
     #state{waiting_acks=WAcks, retry_interval=RetryInterval,
            retry_queue=RetryQueue, send_cnt=SendCnt} = State) ->
@@ -411,7 +411,15 @@ queue_down_terminate(shutdown, State) ->
 queue_down_terminate(Reason, #state{queue_pid=QPid} = State) ->
     terminate({error, {queue_down, QPid, Reason}}, State).
 
-
+terminate(mqtt_client_disconnect, #state{clean_session=CleanSession} = State) ->
+    _ = case CleanSession of
+            true -> ok;
+            false ->
+                handle_waiting_acks_and_msgs(State)
+        end,
+    trigger_counter_update(State),
+    %% TODO: the counter update is missing the last will message
+    {stop, mqtt_client_disconnect, []};
 terminate(Reason, #state{clean_session=CleanSession} = State) ->
     _ = case CleanSession of
             true -> ok;
@@ -595,7 +603,8 @@ auth_on_publish(User, SubscriberId, #vmq_msg{routing_key=Topic,
         ok ->
             AuthSuccess(Msg, HookArgs);
         {ok, ChangedPayload} when is_binary(ChangedPayload) ->
-            AuthSuccess(Msg#vmq_msg{payload=ChangedPayload}, HookArgs);
+            HookArgs1 = [User, SubscriberId, QoS, Topic, ChangedPayload, unflag(IsRetain)],
+            AuthSuccess(Msg#vmq_msg{payload=ChangedPayload}, HookArgs1);
         {ok, Args} when is_list(Args) ->
             #vmq_msg{reg_view=RegView, mountpoint=MP} = Msg,
             ChangedTopic = proplists:get_value(topic, Args, Topic),
@@ -604,12 +613,15 @@ auth_on_publish(User, SubscriberId, #vmq_msg{routing_key=Topic,
             ChangedQoS = proplists:get_value(qos, Args, QoS),
             ChangedIsRetain = proplists:get_value(retain, Args, IsRetain),
             ChangedMountpoint = proplists:get_value(mountpoint, Args, MP),
+            HookArgs1 = [User, SubscriberId, ChangedQoS,
+                         ChangedTopic, ChangedPayload, ChangedIsRetain],
             AuthSuccess(Msg#vmq_msg{routing_key=ChangedTopic,
                                     payload=ChangedPayload,
                                     reg_view=ChangedRegView,
                                     qos=ChangedQoS,
                                     retain=ChangedIsRetain,
-                                    mountpoint=ChangedMountpoint}, HookArgs);
+                                    mountpoint=ChangedMountpoint},
+                        HookArgs1);
         {error, Re} ->
             lager:error("can't auth publish ~p due to ~p", [HookArgs, Re]),
             {error, not_allowed}

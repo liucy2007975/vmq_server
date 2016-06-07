@@ -127,11 +127,7 @@ incr_online_queued_messages(V) ->
     incr_item([queues, online, messages], V).
 
 incr_item(Entry, Val) ->
-    exometer:update_or_create(Entry ++ ['last_sec'], Val),
-    exometer:update_or_create(Entry ++ ['last_10sec'], Val),
-    exometer:update_or_create(Entry ++ ['last_30sec'], Val),
-    exometer:update_or_create(Entry ++ ['last_min'], Val),
-    exometer:update_or_create(Entry ++ ['last_5min'], Val).
+    exometer:update_or_create(Entry ++ ['last_sec'], Val).
 
 entries() ->
     {ok, entries(undefined)}.
@@ -147,10 +143,10 @@ entries(undefined) ->
                  scheduler_utilization_items()}, [{snmp, []}]},
      {[subscriptions], {function, vmq_reg, total_subscriptions, [], proplist,
                         [total]}, [{snmp, []}]},
-     {[clients, expired], counter, [{snmp, []}]},
-     {[clients, active], counter, [{snmp, []}]},
+     {[clients, expired], counter,  [{snmp, []}]},
+     {[clients, active], counter,   [{snmp, []}]},
      {[clients, inactive], counter, [{snmp, []}]},
-     {[clients, total], counter, [{snmp, []}]}
+     {[clients, total], counter,    [{snmp, []}]}
      | counter_entries()];
 entries({ReporterMod, Interval}) ->
     subscribe(ReporterMod, entries(undefined), Interval).
@@ -440,15 +436,16 @@ update_sliding_windows(last_5min, Base, Val, History) ->
 update_sliding_windows(Size, MetricName, SecVal, History) ->
     case lists:keyfind(MetricName, 1, History) of
         false ->
+            exometer:update(MetricName, SecVal),
             InitSlidingWindow = [0 || _ <- lists:seq(1, Size - 1)],
             [{MetricName, [SecVal|InitSlidingWindow]}|History];
         {_, SlidingWindow} ->
-            case lists:last(SlidingWindow) of
+            case SecVal - lists:last(SlidingWindow) of
                 0 ->
                     lists:keyreplace(MetricName, 1, History ,
                                      {MetricName, [SecVal|lists:droplast(SlidingWindow)]});
-                OldestVal ->
-                    exometer:update(MetricName, -OldestVal),
+                DeltaVal ->
+                    exometer:update(MetricName, DeltaVal),
                     lists:keyreplace(MetricName, 1, History ,
                                      {MetricName, [SecVal|lists:droplast(SlidingWindow)]})
             end

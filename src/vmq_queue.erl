@@ -18,7 +18,7 @@
 -behaviour(gen_fsm).
 
 %% API functions
--export([start_link/1,
+-export([start_link/2,
          active/1,
          notify/1,
          notify_recv/1,
@@ -90,8 +90,8 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(SubscriberId) ->
-    gen_fsm:start_link(?MODULE, [SubscriberId], []).
+start_link(SubscriberId, Clean) ->
+    gen_fsm:start_link(?MODULE, [SubscriberId, Clean], []).
 
 
 active(Queue) when is_pid(Queue) ->
@@ -343,7 +343,7 @@ offline(Event, _From, State) ->
 %%% gen_fsm callbacks
 %%%===================================================================
 
-init([SubscriberId]) ->
+init([SubscriberId, Clean]) ->
     Defaults = default_opts(),
     #{max_offline_messages := MaxOfflineMsgs,
       queue_deliver_mode := DeliverMode,
@@ -353,7 +353,15 @@ init([SubscriberId]) ->
     OfflineQueue = #queue{type=QueueType, max=MaxOfflineMsgs},
     {A, B, C} = os:timestamp(),
     random:seed(A, B, C),
-    gen_fsm:send_event(self(), init_offline_queue),
+    case Clean of
+        true ->
+            ignore;
+        false ->
+            %% only init offline queue if this is a queue generated
+            %% during broker startup or we were restarted by the
+            %% vmq_queue_sup supervisor
+            gen_fsm:send_event(self(), init_offline_queue)
+    end,
     vmq_exo:incr_inactive_clients(),
     erlang:send_after(1000, self(), report_queue_stats),
     {ok, offline,  #state{id=SubscriberId,
@@ -424,7 +432,8 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-add_session_(SessionPid, Opts, #state{id=SId, offline=Offline, sessions=Sessions} = State) ->
+add_session_(SessionPid, Opts, #state{id=SId, offline=Offline,
+                                      sessions=Sessions, opts=OldOpts} = State) ->
     #{clean_session := Clean,
       max_online_messages := MaxOnlineMessages,
       max_offline_messages := MaxOfflineMsgs,
@@ -450,6 +459,7 @@ add_session_(SessionPid, Opts, #state{id=SId, offline=Offline, sessions=Sessions
                                   size=0, drop=0,
                                   queue = queue:new()
                                  },
+                        opts=maps:merge(OldOpts, Opts),
                         sessions=NewSessions}).
 
 del_session(SessionPid, #state{id=SId, sessions=Sessions} = State) ->
