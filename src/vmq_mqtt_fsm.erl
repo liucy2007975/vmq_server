@@ -327,6 +327,7 @@ connected(#mqtt_pubrel{message_id=MessageId}, State) ->
     end;
 connected(#mqtt_pubcomp{message_id=MessageId}, State) ->
     #state{waiting_acks=WAcks, recv_cnt=RecvCnt} = State,
+    lager:debug("mqtt_pubcomp MessageId: ~p Waiting_acks: ~p State: ~p", [MessageId,WAcks,State]),
     %% qos2 flow
     case maps:get(MessageId, WAcks, not_found) of
         #mqtt_pubrel{} ->
