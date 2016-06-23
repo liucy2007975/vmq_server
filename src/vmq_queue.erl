@@ -674,12 +674,14 @@ queue_insert(Offline, MsgOrRef, #queue{max=-1, size=Size, queue=Queue} = Q, SId)
 queue_insert(_Offline, MsgOrRef, #queue{type=fifo, max=Max, size=Size, drop=Drop} = Q, SId)
   when Size >= Max ->
     maybe_offline_delete(SId, MsgOrRef),
+    lager:debug("tail drop in case of fifo SubscriberId: ~p  Msg: ~p size: ~p", [SId,MsgOrRef,Size]),
     Q#queue{drop=Drop + 1};
 %% drop oldest in case of lifo
 queue_insert(Offline, MsgOrRef, #queue{type=lifo, max=Max, size=Size, queue=Queue, drop=Drop} = Q, SId)
   when Size >= Max ->
     {{value, OldMsgOrRef}, NewQueue} = queue:out(Queue),
     maybe_offline_delete(SId, OldMsgOrRef),
+    lager:debug("drop oldest in case of lifo SubscriberId: ~p  Msg: ~p size: ~p", [SId,MsgOrRef,Size]),
     Q#queue{queue=queue:in(maybe_offline_store(Offline, SId, MsgOrRef), NewQueue), drop=Drop + 1};
 
 %% normal enqueue

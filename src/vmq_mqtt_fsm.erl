@@ -332,6 +332,7 @@ connected(#mqtt_pubrel{message_id=MessageId}, State) ->
     end;
 connected(#mqtt_pubcomp{message_id=MessageId}, State) ->
     #state{waiting_acks=WAcks, recv_cnt=RecvCnt} = State,
+    lager:debug("mqtt_pubcomp MessageId: ~p Waiting_acks: ~p State: ~p", [MessageId,WAcks,State]),
     %% qos2 flow
     case maps:get(MessageId, WAcks, not_found) of
         #mqtt_pubrel{} ->
@@ -377,7 +378,8 @@ connected(#mqtt_pingreq{}, State) ->
     {NewState, Out} = send_frame(#mqtt_pingresp{}, State),
     {incr_msg_recv_cnt(NewState), Out};
 connected(#mqtt_disconnect{}, State) ->
-    terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
+    terminate(normal, incr_msg_recv_cnt(State));
+    %%terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
 connected(retry,
     #state{waiting_acks=WAcks, retry_interval=RetryInterval,
            retry_queue=RetryQueue, send_cnt=SendCnt} = State) ->
@@ -674,6 +676,7 @@ dispatch_publish_qos0(_MessageId, Msg, State) ->
             %% we have to close connection for 3.1.1
             {error, not_allowed, drop(State)};
         {error, _Reason} ->
+          lager:debug("can't  publish Msg ~p drop due to ~p", [Msg, _Reason]),
             {drop(State), []}
     end.
 
@@ -691,6 +694,7 @@ dispatch_publish_qos1(MessageId, Msg, State) ->
             %% we pretend as everything is ok for 3.1 and Bridge
             send_frame(#mqtt_puback{message_id=MessageId}, drop(State));
         {error, _Reason} ->
+            lager:debug("can't  publish Msg ~p drop due to ~p", [Msg, _Reason]),
             %% can't publish due to overload or netsplit
             {drop(State), []}
     end.
