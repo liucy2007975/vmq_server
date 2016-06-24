@@ -116,7 +116,7 @@ init(Peer, Opts) ->
                                      reg_view=RegView}}.
 
 data_in(Data, SessionState) when is_binary(Data) ->
-    lager:debug("session data in ,sessionState: ~p data: ~p~n", [SessionState,Data]),
+    %%lager:debug("session data in ,sessionState: ~p ~n", [SessionState]),
     data_in(Data, SessionState, []).
 
 data_in(Data, SessionState, OutAcc) ->
