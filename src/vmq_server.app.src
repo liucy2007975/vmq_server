@@ -68,7 +68,7 @@
       {tcp_listen_options, [
             {nodelay, true},
             {linger, {true, 0}}, 
-            {send_timeout, 30000}, 
+            {send_timeout, 5000},
             {send_timeout_close, true}
         ]},
 
