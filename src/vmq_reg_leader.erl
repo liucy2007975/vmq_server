@@ -55,8 +55,8 @@ register_subscriber(SessionPid, SubscriberId, QueueOpts) ->
     {ok, boolean(), pid()} | {error, any()}.
 register_subscriber(Leader, SessionPid, SubscriberId, QueueOpts) ->
     Req = {register_subscriber, node(), SessionPid, SubscriberId, QueueOpts},
-    %% try gen_server:call({?MODULE, Leader}, Req, infinity)
-    try gen_server:call({?MODULE, Leader}, Req, 30000)
+     try gen_server:call({?MODULE, Leader}, Req, infinity)
+     %% try gen_server:call({?MODULE, Leader}, Req, 30000)
     catch
         _:_ ->
             %% mostly happens in case of a netsplit
