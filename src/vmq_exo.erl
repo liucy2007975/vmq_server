@@ -127,6 +127,8 @@ incr_online_queued_messages(V) ->
     incr_item([queues, online, messages], V).
 
 incr_item(Entry, Val) ->
+  Entry,
+  Val,
    %% exometer:update_or_create(Entry ++ ['last_sec'], Val).
    ok.
 entries() ->
