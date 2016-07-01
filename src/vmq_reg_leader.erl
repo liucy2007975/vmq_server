@@ -56,7 +56,7 @@ register_subscriber(SessionPid, SubscriberId, QueueOpts) ->
 register_subscriber(Leader, SessionPid, SubscriberId, QueueOpts) ->
     Req = {register_subscriber, node(), SessionPid, SubscriberId, QueueOpts},
     %% try gen_server:call({?MODULE, Leader}, Req, infinity)
-    try gen_server:call({?MODULE, Leader}, Req, 10000)
+    try gen_server:call({?MODULE, Leader}, Req, 30000000)
     catch
         _:_ ->
             %% mostly happens in case of a netsplit
