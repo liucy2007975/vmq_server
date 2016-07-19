@@ -378,8 +378,8 @@ connected(#mqtt_pingreq{}, State) ->
     {NewState, Out} = send_frame(#mqtt_pingresp{}, State),
     {incr_msg_recv_cnt(NewState), Out};
 connected(#mqtt_disconnect{}, State) ->
-    terminate(normal, incr_msg_recv_cnt(State));
-    %%terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
+%%     terminate(normal, incr_msg_recv_cnt(State));
+    terminate(mqtt_client_disconnect, incr_msg_recv_cnt(State));
 connected(retry,
     #state{waiting_acks=WAcks, retry_interval=RetryInterval,
            retry_queue=RetryQueue, send_cnt=SendCnt} = State) ->
